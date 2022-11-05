@@ -1,0 +1,94 @@
+import codecademylib3_seaborn
+import matplotlib.pyplot as plt
+from sklearn.svm import SVC
+from sklearn.model_selection import train_test_split
+from svm_visualization import draw_boundary
+from players import aaron_judge, jose_altuve, david_ortiz
+
+fig, ax = plt.subplots()
+
+
+def calculate_strike_zone(player_name): 
+  player_name['type'] = player_name['type'].map({'S':1,'B':2})
+  player_name = player_name.dropna(subset = ['type', 'plate_x', 'plate_z'])
+
+
+  #collect all the points (strikes and balls)
+  plt.scatter(x = player_name['plate_x'], y = player_name['plate_z'], c = player_name['type'], cmap = plt.cm.coolwarm, alpha = 0.25)
+
+  #seperate the points into testing and training data
+  training_set, validation_set = train_test_split(player_name, random_state = 1 )
+
+  #Iterate through the different possible gamma and C values to find the optimal ones
+  largest = {'value': 0, 'gamma': 1, 'C':1}
+  for gamma in range(1,5):
+    for C in range(1,5):
+      #create and train the support vector classifier
+      classifier = SVC(kernel = 'rbf', gamma = gamma, C = C)
+      classifier.fit(
+        training_set[['plate_x', 'plate_z', ]],
+        training_set.type
+     )
+
+      #determine the accuracy of the strike zone
+      score = classifier.score(
+        validation_set[['plate_x', 'plate_z']],
+        validation_set.type
+     )
+
+      if (score > largest['value']):
+         largest['value'] = score
+         largest['gamma'] = gamma
+         largest['C'] = C
+
+  print(largest)
+
+  #draw the boundary
+  draw_boundary(ax, classifier)
+
+  #show everything
+  ax.set_ylim(-2, 6)
+  ax.set_xlim(-3, 3)
+  plt.show()
+
+print('Aaron Judge:')
+calculate_strike_zone(aaron_judge)
+
+def hot_zone_with_pitch(player_name, pitches_name, zone):
+
+  player_name['pitch_name'] = player_name['pitch_name'].map({pitches_name:1})
+  player_name = player_name.dropna(subset = ['pitch_name', 'plate_x', 'plate_z', 'estimated_ba_using_speedangle'])
+
+  if(zone == 'hot'):
+    indexNames = player_name[player_name['estimated_ba_using_speedangle'] < .300].index
+    player_name.drop(indexNames, inplace = True)
+  
+  elif(zone == 'cold'):
+    indexNames = player_name[player_name['estimated_ba_using_speedangle'] > .300].index
+    player_name.drop(indexNames, inplace = True)
+
+  else:
+    print('zone is hot or cold')
+
+  plt.scatter(x = player_name['plate_x'], y = player_name['plate_z'], c = player_name['pitch_name'], cmap = plt.cm.coolwarm, alpha = 0.25)
+
+  ax.set_ylim(-2, 6)
+  ax.set_xlim(-3, 3)
+  plt.show()
+
+#print(aaron_judge.pitch_name)
+#hot_zone_with_pitch(aaron_judge, 'Curveball', 'hot')
+
+def show_strikes(player_name, pitches_name):
+  player_name['description'] = player_name['description'].map({'swinging_strike':1, 'called_strike': 2})
+  player_name['pitch_name'] = player_name['pitch_name'].map({pitches_name:1})
+  player_name = player_name.dropna(subset = ['pitch_name', 'description'])
+
+  plt.scatter(x = player_name['plate_x'], y = player_name['plate_z'], c = player_name['description'], cmap = plt.cm.coolwarm, alpha = 0.25)
+
+  ax.set_ylim(-2, 6)
+  ax.set_xlim(-3, 3)
+  plt.show()
+
+#show_strikes(aaron_judge, '4-Seam Fastball')
+
